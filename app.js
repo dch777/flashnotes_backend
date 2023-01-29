@@ -14,14 +14,18 @@ if (cluster.isMaster) {
 } else {
 	const express = require("express");
 	const cookieParser = require("cookie-parser");
+	const fileUpload = require("express-fileupload");
 
 	const withDDB = require("./middleware/ddb");
+	const withS3 = require("./middleware/s3");
 	const auth = require("./routers/auth");
 
 	const app = express();
 	app.use(cookieParser());
+	app.use(fileUpload());
 	app.use(express.json());
 	app.use(withDDB);
+	app.use(withS3);
 	const http = require("http").Server(app);
 
 	app.get("/", (req, res) => {

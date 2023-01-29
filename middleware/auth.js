@@ -67,31 +67,17 @@ const getUserByJWT = (req, res, next) => {
 	}
 };
 
-const validateClient = (req, res, next) => {
+const validateUser = (req, res, next) => {
 	const { client } = req.user;
 	if (!req.user) {
 		res.status(401).send("Not logged in");
-	} else if (client.BOOL) {
-		next();
 	} else {
-		res.status(403).send("Must be client to access");
-	}
-};
-
-const validateCustomer = (req, res, next) => {
-	const { client } = req.user;
-	if (!req.user) {
-		res.status(401).send("Not logged in");
-	} else if (!client.BOOL) {
 		next();
-	} else {
-		res.status(403).send("Must be customer to access");
 	}
 };
 
 module.exports = {
 	getUserByEmail,
 	getUserByJWT,
-	validateClient,
-	validateCustomer,
+	validateUser,
 };

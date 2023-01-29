@@ -5,11 +5,12 @@ const { getUserByEmail, getUserByJWT } = require("../middleware/auth.js");
 
 const authRouter = express.Router();
 const authTable = "flashnotes-auth";
+const notesBucket = "flashnotes";
 
 authRouter.post("/signup", getUserByEmail, (req, res) => {
 	const ddb = req.ddb;
 	const uuid = uuidv4();
-	const { email, username, password, phone, address, client } = req.body;
+	const { email, username, password, phone } = req.body;
 
 	if (!req.user) {
 		const signUp = {
@@ -19,9 +20,7 @@ authRouter.post("/signup", getUserByEmail, (req, res) => {
 				email: { S: email },
 				username: { S: username },
 				password: { S: password },
-				phone: { N: phone.toString() },
-				address: { S: address },
-				client: { BOOL: client },
+				notes: { L: [] },
 			},
 		};
 
@@ -65,6 +64,46 @@ authRouter.get("/logout", getUserByJWT, (req, res) => {
 
 authRouter.get("/data", getUserByJWT, (req, res) => {
 	res.status(200).send(req.user);
+});
+
+authRouter.post("/create", getUserByJWT), (req, res) => {
+	const ddb = req.ddb;
+	const note_id = uuidv4();
+
+	const createNoteParams = {
+		TableName: authTable,
+		Key: {
+			uuid: { S: uuid },
+		},
+		UpdateExpression: "SET notes = list_append(notes, :c)",
+		ExpressionAttributeValues: {
+			":c": { L: [{ S: note_id }] },
+		},
+		ReturnValues: "ALL_NEW",
+	};
+
+	s3.putObject({
+		Bucket: notesBucket,
+		Key: note_id,
+		Body: req.files.note.data,
+		ACL: 'public-read'
+	}, function (err, data) {
+		if (err) {
+			console.error(`[${process.pid}] ${err}`);
+			res.status(500).send({ error: "Server Error" });
+		}
+	});
+
+	ddb.updateItem(createNoteParams, (err, data) => {
+		if (err) {
+			console.error(`[${process.pid}] ${err}`);
+			res.status(500).send({ error: "Server Error" });
+		} else if (data.Attributes) {
+			res.status(200).send("Note created");
+		} else {
+			res.status(401).send({ error: "Not found" });
+		}
+	})
 });
 
 module.exports = authRouter;
