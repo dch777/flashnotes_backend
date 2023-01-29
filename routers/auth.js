@@ -10,7 +10,7 @@ const notesBucket = "flashnotes";
 authRouter.post("/signup", getUserByEmail, (req, res) => {
 	const ddb = req.ddb;
 	const uuid = uuidv4();
-	const { email, username, password, phone } = req.body;
+	const { email, username, password } = req.body;
 
 	if (!req.user) {
 		const signUp = {
@@ -66,14 +66,15 @@ authRouter.get("/data", getUserByJWT, (req, res) => {
 	res.status(200).send(req.user);
 });
 
-authRouter.post("/create", getUserByJWT), (req, res) => {
+authRouter.post("/create", getUserByJWT, (req, res) => {
 	const ddb = req.ddb;
+	const s3 = req.s3;
 	const note_id = uuidv4();
 
 	const createNoteParams = {
 		TableName: authTable,
 		Key: {
-			uuid: { S: uuid },
+			uuid: req.user.uuid,
 		},
 		UpdateExpression: "SET notes = list_append(notes, :c)",
 		ExpressionAttributeValues: {
@@ -82,17 +83,20 @@ authRouter.post("/create", getUserByJWT), (req, res) => {
 		ReturnValues: "ALL_NEW",
 	};
 
-	s3.putObject({
-		Bucket: notesBucket,
-		Key: note_id,
-		Body: req.files.note.data,
-		ACL: 'public-read'
-	}, function (err, data) {
-		if (err) {
-			console.error(`[${process.pid}] ${err}`);
-			res.status(500).send({ error: "Server Error" });
+	s3.putObject(
+		{
+			Bucket: notesBucket,
+			Key: note_id,
+			Body: req.files.note.data,
+			ACL: "public-read",
+		},
+		function (err, data) {
+			if (err) {
+				console.error(`[${process.pid}] ${err}`);
+				res.status(500).send({ error: "Server Error" });
+			}
 		}
-	});
+	);
 
 	ddb.updateItem(createNoteParams, (err, data) => {
 		if (err) {
@@ -103,7 +107,7 @@ authRouter.post("/create", getUserByJWT), (req, res) => {
 		} else {
 			res.status(401).send({ error: "Not found" });
 		}
-	})
+	});
 });
 
 module.exports = authRouter;
